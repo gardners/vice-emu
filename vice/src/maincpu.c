@@ -25,6 +25,8 @@
  *
  */
 
+#define CPU4510
+
 #include "vice.h"
 
 #include <stdio.h>
@@ -416,6 +418,11 @@ void maincpu_mainloop(void)
     BYTE reg_a = 0;
     BYTE reg_x = 0;
     BYTE reg_y = 0;
+#ifdef CPU4510
+    BYTE reg_z = 0;
+    BYTE reg_b = 0;
+    BYTE reg_sph = 1;
+#endif
 #else
     int reg_a_read_idx = 0;
     int reg_a_write_idx = 0;

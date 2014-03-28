@@ -507,8 +507,11 @@ void maincpu_mainloop(void)
     BYTE reg_a = 0;
     BYTE reg_x = 0;
     BYTE reg_y = 0;
+    BYTE reg_z = 0;
     BYTE reg_p = 0;
     BYTE reg_sp = 0;
+    BYTE reg_sph = 0;
+    BYTE reg_b = 0;
     BYTE flag_n = 0;
     BYTE flag_z = 0;
 #ifndef NEED_REG_PC

@@ -71,7 +71,8 @@ extern int debug_cmdline_options_init(void);
 extern void debug_set_machine_parameter(unsigned int cycles,
                                         unsigned int lines);
 extern void debug_maincpu(DWORD reg_pc, CLOCK mclk, const char *dis,
-                          BYTE reg_a, BYTE reg_x, BYTE reg_y, BYTE reg_sp);
+                          BYTE reg_a, BYTE reg_x, BYTE reg_y, BYTE reg_z,
+			  BYTE reg_sp, BYTE reg_sph, BYTE reg_b);
 extern void debug_drive(DWORD reg_pc, CLOCK mclk, const char *dis,
                         BYTE reg_a, BYTE reg_x, BYTE reg_y, BYTE reg_sp,
                         unsigned int driveno);

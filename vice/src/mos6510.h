@@ -39,7 +39,10 @@ typedef struct mos6510_regs_s {
     BYTE a;
     BYTE x;
     BYTE y;
+    BYTE zr;
     BYTE sp;
+    BYTE sph;
+    BYTE b;
     BYTE p;
     BYTE n;
     BYTE z;
@@ -50,6 +53,7 @@ typedef struct mos6510_regs_s {
 #define P_SIGN          0x80
 #define P_OVERFLOW      0x40
 #define P_UNUSED        0x20
+#define P_ENHANCED      0x20
 #define P_BREAK         0x10
 #define P_DECIMAL       0x08
 #define P_INTERRUPT     0x04
@@ -58,12 +62,18 @@ typedef struct mos6510_regs_s {
 
 #define MOS6510_REGS_SET_A(regs, val) \
     (regs)->a = (val)
+#define MOS6510_REGS_SET_B(regs, val) \
+    (regs)->b = (val)
 #define MOS6510_REGS_SET_X(regs, val) \
     (regs)->x = (val)
 #define MOS6510_REGS_SET_Y(regs, val) \
     (regs)->y = (val)
+#define MOS6510_REGS_SET_ZR(regs, val) \
+    (regs)->z = (val)
 #define MOS6510_REGS_SET_SP(regs, val) \
     (regs)->sp = (val)
+#define MOS6510_REGS_SET_SPH(regs, val) \
+    (regs)->sph = (val)
 #define MOS6510_REGS_SET_PC(regs, val) \
     (regs)->pc = (val)
 

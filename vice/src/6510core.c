@@ -29,12 +29,15 @@
  *
  */
 
+
 /* This file is included by CPU definition files */
 /* (maincpu.c, drivecpu.c, ...) */
 
 #ifdef DRIVE_CPU
 #define CPU_STR "Drive CPU"
+#undef CPU4510
 #else
+#define CPU4510
 #define CPU_STR "Main CPU"
 #endif
 
@@ -145,6 +148,14 @@
             reg_p &= ~P_DECIMAL; \
     } while (0)
 
+#define LOCAL_SET_ENHANCED(val)   \
+    do {                          \
+        if (val)                  \
+            reg_p |= P_ENHANCED;  \
+        else                      \
+            reg_p &= ~P_ENHANCED; \
+    } while (0)
+
 #define LOCAL_SET_INTERRUPT(val)   \
     do {                           \
         if (val)                   \
@@ -221,6 +232,39 @@
 
 #ifndef C64DTV
 /* Export the local version of the registers.  */
+#ifdef CPU4510
+#define EXPORT_REGISTERS()      \
+  do {                          \
+      GLOBAL_REGS.pc = reg_pc;  \
+      GLOBAL_REGS.a = reg_a_read;    \
+      GLOBAL_REGS.x = reg_x;    \
+      GLOBAL_REGS.y = reg_y;    \
+      GLOBAL_REGS.sp = reg_sp;  \
+      GLOBAL_REGS.p = reg_p;    \
+      GLOBAL_REGS.n = flag_n;   \
+      GLOBAL_REGS.z = flag_z;   \
+      GLOBAL_REGS.zr = reg_z;    \
+      GLOBAL_REGS.b = reg_b;    \
+      GLOBAL_REGS.sph = reg_sph;  \
+  } while (0)
+
+/* Import the public version of the registers.  */
+#define IMPORT_REGISTERS()      \
+  do {                          \
+      reg_a_write /*TODO*/= GLOBAL_REGS.a;    \
+      reg_x = GLOBAL_REGS.x;    \
+      reg_y = GLOBAL_REGS.y;    \
+      reg_sph = GLOBAL_REGS.sph;    \
+      reg_b = GLOBAL_REGS.b;    \
+      reg_z = GLOBAL_REGS.zr;    \
+      reg_sp = GLOBAL_REGS.sp;  \
+      reg_p = GLOBAL_REGS.p;    \
+      flag_n = GLOBAL_REGS.n;   \
+      flag_z = GLOBAL_REGS.z;   \
+      JUMP(GLOBAL_REGS.pc);     \
+  } while (0)
+
+#else // 6510
 #define EXPORT_REGISTERS()      \
   do {                          \
       GLOBAL_REGS.pc = reg_pc;  \
@@ -239,12 +283,18 @@
       reg_a_write /*TODO*/= GLOBAL_REGS.a;    \
       reg_x = GLOBAL_REGS.x;    \
       reg_y = GLOBAL_REGS.y;    \
+      reg_sph = GLOBAL_REGS.sph;    \
+      reg_b = GLOBAL_REGS.b;    \
+      reg_z = GLOBAL_REGS.zr;    \
       reg_sp = GLOBAL_REGS.sp;  \
       reg_p = GLOBAL_REGS.p;    \
       flag_n = GLOBAL_REGS.n;   \
       flag_z = GLOBAL_REGS.z;   \
       JUMP(GLOBAL_REGS.pc);     \
   } while (0)
+
+#endif
+
 #else  /* C64DTV */
 
 /* Export the local version of the registers.  */
@@ -759,6 +809,12 @@ be found that works for both.
       LOCAL_SET_DECIMAL(0);  \
   } while (0)
 
+#define CLE()                \
+  do {                       \
+      INC_PC(1);             \
+      LOCAL_SET_ENHANCED(0); \
+  } while (0)
+
 #define CLI()                    \
   do {                           \
       INC_PC(1);                 \
@@ -1161,6 +1217,20 @@ be found that works for both.
       RMW_FLAG = 0;                                             \
   } while (0)
 
+#define RMB0(addr, clk_inc, pc_inc, load_func, store_func)	\
+  do {                                                     \
+      unsigned int tmp, tmp_addr;                          \
+                                                           \
+      tmp_addr = (addr);                                   \
+      tmp = load_func(tmp_addr) & 0xfe;                    \
+      LOCAL_SET_NZ(tmp);                                   \
+      RMW_FLAG = 1;                                        \
+      INC_PC(pc_inc);                                      \
+      store_func(tmp_addr, tmp, (clk_inc));                \
+      RMW_FLAG = 0;                                        \
+  } while (0)
+
+
 #define ROL(addr, clk_inc, pc_inc, load_func, store_func)  \
   do {                                                     \
       unsigned int tmp, tmp_addr;                          \
@@ -1358,6 +1428,12 @@ be found that works for both.
 #define SED()                \
   do {                       \
       LOCAL_SET_DECIMAL(1);  \
+      INC_PC(1);             \
+  } while (0)
+
+#define SEE()                \
+  do {                       \
+      LOCAL_SET_ENHANCED(1); \
       INC_PC(1);             \
   } while (0)
 
@@ -1577,10 +1653,30 @@ be found that works for both.
       INC_PC(1);            \
   } while (0)
 
+#define TSB(addr, clk_inc, pc_inc, load_func, store_func)  \
+  do {                                                     \
+      unsigned int tmp, tmp_addr;                          \
+                                                           \
+      tmp_addr = (addr);                                   \
+      tmp = load_func(tmp_addr) | reg_a;                   \
+      LOCAL_SET_NZ(tmp);                                   \
+      RMW_FLAG = 1;                                        \
+      INC_PC(pc_inc);                                      \
+      store_func(tmp_addr, tmp, (clk_inc));                \
+      RMW_FLAG = 0;                                        \
+  } while (0)
+
 #define TSX()                \
   do {                       \
       reg_x = reg_sp;        \
       LOCAL_SET_NZ(reg_sp);  \
+      INC_PC(1);             \
+  } while (0)
+
+#define TSY()                \
+  do {                       \
+      reg_y = reg_sph;       \
+      LOCAL_SET_NZ(reg_sph); \
       INC_PC(1);             \
   } while (0)
 
@@ -2005,8 +2101,12 @@ trap_skipped:
             break;
 
           case 0x02:            /* JAM - also used for traps */
+#ifdef CPU4510
+	    CLE();
+#else
             STATIC_ASSERT(TRAP_OPCODE == 0x02);
             JAM_02();
+#endif
             break;
 
           case 0x22:            /* JAM */
@@ -2042,10 +2142,18 @@ trap_skipped:
 #endif
 
           case 0x03:            /* SLO ($nn,X) */
+#ifdef CPU4510
+	    SEE();
+#else
             SLO(LOAD_ZERO_ADDR(p1 + reg_x), 3, CLK_IND_X_RMW, 2, LOAD_ABS, STORE_ABS);
+#endif
             break;
 
           case 0x04:            /* NOOP $nn */
+#ifdef CPU4510
+            TSB(p1, CLK_ZERO_RMW, 2, LOAD_ZERO, STORE_ABS);
+	    break;
+#endif
           case 0x44:            /* NOOP $nn */
           case 0x64:            /* NOOP $nn */
             NOOP(1, 2);
@@ -2060,7 +2168,11 @@ trap_skipped:
             break;
 
           case 0x07:            /* SLO $nn */
+#ifdef CPU4510
+            RMB0(p1, CLK_ZERO_RMW, 2, LOAD_ZERO, STORE_ABS);
+#else	  
             SLO(p1, 0, CLK_ZERO_RMW, 2, LOAD_ZERO, STORE_ABS);
+#endif
             break;
 
           case 0x08:            /* PHP */
@@ -2080,11 +2192,19 @@ trap_skipped:
             break;
 
           case 0x0b:            /* ANC #$nn */
+#ifdef CPU4510
+	    TSY();
+#else
             ANC(p1, 2);
+#endif
             break;
 
           case 0x0c:            /* NOOP $nnnn */
+#ifdef CPU5410
+            TSB(p2, CLK_ABS_RMW2, 3, LOAD_ABS, STORE_ABS);
+#else
             NOOP_ABS();
+#endif
             break;
 
           case 0x0d:            /* ORA $nnnn */
