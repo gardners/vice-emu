@@ -518,6 +518,14 @@
        LOAD(LOAD_ZERO_ADDR((addr)) + reg_y))                           \
     : LOAD(LOAD_ZERO_ADDR((addr)) + reg_y))
 
+#define LOAD_IND_Z(addr)                                               \
+   (CLK_ADD(CLK, 2), ((LOAD_ZERO_ADDR((addr)) & 0xff) + reg_z) > 0xff  \
+    ? (LOAD((LOAD_ZERO_ADDR((addr)) & 0xff00)                          \
+            | ((LOAD_ZERO_ADDR((addr)) + reg_z) & 0xff)),              \
+       CLK_ADD(CLK,CLK_INT_CYCLE),                                     \
+       LOAD(LOAD_ZERO_ADDR((addr)) + reg_z))                           \
+    : LOAD(LOAD_ZERO_ADDR((addr)) + reg_z))
+
 #define LOAD_ZERO_X(addr)  \
    (LOAD_ZERO((addr) + reg_x))
 
@@ -946,6 +954,13 @@ be found that works for both.
       RMW_FLAG = 0;                                        \
   } while (0)
 
+#define INCA()              \
+  do {                      \
+      reg_a++;              \
+      LOCAL_SET_NZ(reg_a);  \
+      INC_PC(1);            \
+  } while (0)
+
 #define INX()               \
   do {                      \
       reg_x++;              \
@@ -957,6 +972,13 @@ be found that works for both.
   do {                      \
       reg_y++;              \
       LOCAL_SET_NZ(reg_y);  \
+      INC_PC(1);            \
+  } while (0)
+
+#define INZ()               \
+  do {                      \
+      reg_z++;              \
+      LOCAL_SET_NZ(reg_z);  \
       INC_PC(1);            \
   } while (0)
 
@@ -1653,6 +1675,19 @@ be found that works for both.
       INC_PC(1);            \
   } while (0)
 
+#define TRB(addr, clk_inc, pc_inc, load_func, store_func)  \
+  do {                                                     \
+      unsigned int tmp, tmp_addr;                          \
+                                                           \
+      tmp_addr = (addr);                                   \
+      tmp = load_func(tmp_addr) & (0xff-reg_a);		   \
+      LOCAL_SET_NZ(tmp);                                   \
+      RMW_FLAG = 1;                                        \
+      INC_PC(pc_inc);                                      \
+      store_func(tmp_addr, tmp, (clk_inc));                \
+      RMW_FLAG = 0;                                        \
+  } while (0)
+
 #define TSB(addr, clk_inc, pc_inc, load_func, store_func)  \
   do {                                                     \
       unsigned int tmp, tmp_addr;                          \
@@ -2119,6 +2154,10 @@ trap_skipped:
           case 0xf2:            /* JAM */
 #ifndef C64DTV
           case 0x12:            /* JAM */
+#ifdef CPU4510
+            ORA(LOAD_IND_Z(p1), 1, 2);
+            break;
+#endif
           case 0x32:            /* JAM */
           case 0x42:            /* JAM */
 #endif
@@ -2232,6 +2271,10 @@ trap_skipped:
             break;
 
           case 0x14:            /* NOOP $nn,X */
+#ifdef CPU4510
+            TRB(p1, CLK_ZERO_RMW, 2, LOAD_ZERO, STORE_ABS);
+	    break;
+#endif
           case 0x34:            /* NOOP $nn,X */
           case 0x54:            /* NOOP $nn,X */
           case 0x74:            /* NOOP $nn,X */
@@ -2261,6 +2304,10 @@ trap_skipped:
             break;
 
           case 0x1a:            /* NOOP */
+#ifdef CPU4510
+            INCA();
+	    break;
+#endif
           case 0x3a:            /* NOOP */
           case 0x5a:            /* NOOP */
           case 0x7a:            /* NOOP */
@@ -2270,10 +2317,18 @@ trap_skipped:
             break;
 
           case 0x1b:            /* SLO $nnnn,Y */
+#ifdef CPU4510
+            INZ();
+#else
             SLO(p2, 0, CLK_ABS_I_RMW2, 3, LOAD_ABS_Y_RMW, STORE_ABS_Y_RMW);
+#endif
             break;
 
           case 0x1c:            /* NOOP $nnnn,X */
+#ifdef CPU5410
+            TRB(p2, CLK_ABS_RMW2, 3, LOAD_ABS, STORE_ABS);
+	    break;
+#endif
           case 0x3c:            /* NOOP $nnnn,X */
           case 0x5c:            /* NOOP $nnnn,X */
           case 0x7c:            /* NOOP $nnnn,X */
